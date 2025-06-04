@@ -31,7 +31,7 @@ class BatchRunner:
                  n_paths: int,
                  tickers: List[str],
                  monthly_contrib: float = 100.0,
-                 seed: int = 0):
+                 seed: int | None = None):
 
         self.n_paths = n_paths
         self.tickers = tickers
@@ -46,7 +46,7 @@ class BatchRunner:
         }
         self.weights = np.array([TARGET_ALLOC[t] for t in tickers])
 
-        # Create a single master RNG
+        # Create a single master RNG (seed=None → random)
         self.master_rng = np.random.default_rng(seed)
 
         # Initialize modules without giving them their own seeds…
