@@ -1,0 +1,35 @@
+{
+  "n_paths": 10000,
+  "terminal_wealth_percentiles": [
+    12054.0,
+    42721.0,
+    110638.0,
+    306251.0,
+    1361938.0
+  ],
+  "cagr_percentiles": [
+    -3.4,
+    -0.29,
+    2.11,
+    4.74,
+    8.72
+  ],
+  "max_dd_percentiles": [
+    -96.0,
+    -74.0,
+    -44.3
+  ],
+  "bucket_frequency": {
+    "early": 23.63,
+    "middle": 40.54,
+    "late": 25.51,
+    "never": 10.32
+  },
+  "event_frequency": {
+    "E-B0-A": 39.03,
+    "E-B1-B": 17.5,
+    "E-B1-C": 9.77,
+    "E-S2-Stall": 9.77,
+    "E-B1-A": 11.83
+  }
+}

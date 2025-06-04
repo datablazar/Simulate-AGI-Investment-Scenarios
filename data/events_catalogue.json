@@ -1,0 +1,199 @@
+[
+  {
+    "id": "E-B0-Breakthrough",
+    "stage": "Pre-AGI",
+    "year_offset": 0,
+    "base_prob": 0.32,
+    "condition": ["ALWAYS"],
+    "delta_drift": { "SEMI": 6, "XAIX": 6, "RBTX": 5 },
+    "delta_vol": 0.05,
+    "next_events": [
+      ["E-B1-Fail", 0.25],
+      ["E-B1-Partial", 0.50],
+      ["E-B1-Success", 0.25]
+    ],
+    "narrative": "Self-improver discovered (32 % prior; survey meta-analysis 2025)"
+  },
+  {
+    "id": "E-B0-SMR",
+    "stage": "Pre-AGI",
+    "year_offset": 0,
+    "base_prob": 0.28,
+    "condition": ["ALWAYS"],
+    "delta_drift": { "NUCG": 6, "WCOM": 2 },
+    "delta_vol": -0.02,
+    "next_events": [],
+    "narrative": "SMR build-outs approved; first grid 2030"
+  },
+  {
+    "id": "E-B0-GPUShortage",
+    "stage": "Pre-AGI",
+    "year_offset": 0,
+    "base_prob": 0.30,
+    "condition": ["ALWAYS"],
+    "delta_drift": { "SEMI": -4 },
+    "delta_vol": 0.08,
+    "next_events": [],
+    "narrative": "HBM3 supply tight; 2025 capacity pre-sold"
+  },
+  {
+    "id": "E-B0-CyberHit",
+    "stage": "Pre-AGI",
+    "year_offset": 0,
+    "base_prob": 0.22,
+    "condition": ["ALWAYS"],
+    "delta_drift": { "ISPY": 7, "PACW": -4 },
+    "delta_vol": 0.12,
+    "next_events": [],
+    "narrative": "AI-enabled cyber breach escalates"
+  },
+  {
+    "id": "E-B0-TreatyDelay",
+    "stage": "Pre-AGI",
+    "year_offset": 0,
+    "base_prob": 0.10,
+    "condition": ["ALWAYS"],
+    "delta_drift": { "PACW": -1 },
+    "delta_vol": 0.00,
+    "next_events": [],
+    "narrative": "US-EU-UK safety pact slows model scaling"
+  },
+  {
+    "id": "E-B1-Success",
+    "stage": "AGI-Rollout",
+    "year_offset": 1,
+    "base_prob": 0.0,
+    "condition": ["E-B0-Breakthrough"],
+    "delta_drift": { "SEMI": 7, "XAIX": 7, "RBTX": 6 },
+    "delta_vol": -0.05,
+    "next_events": [
+      ["E-S2-FastTakeoff", 0.50],
+      ["E-S2-Throttled", 0.50]
+    ],
+    "narrative": "Robust alignment → green-lighted roll-out"
+  },
+  {
+    "id": "E-B1-Partial",
+    "stage": "AGI-Rollout",
+    "year_offset": 1,
+    "base_prob": 0.0,
+    "condition": ["E-B0-Breakthrough"],
+    "delta_drift": { "SEMI": -3, "PACW": -2 },
+    "delta_vol": 0.10,
+    "next_events": [
+      ["E-S2-Bottleneck", 1.0]
+    ],
+    "narrative": "Partial alignment → gated release"
+  },
+  {
+    "id": "E-B1-Fail",
+    "stage": "AGI-Rollout",
+    "year_offset": 1,
+    "base_prob": 0.0,
+    "condition": ["E-B0-Breakthrough"],
+    "delta_drift": { "PACW": -6, "XAIX": -12 },
+    "delta_vol": 0.30,
+    "next_events": [
+      ["E-S2-Stall", 1.0]
+    ],
+    "narrative": "Alignment failure → emergency halt"
+  },
+  {
+    "id": "E-S2-FastTakeoff",
+    "stage": "Self-Improving",
+    "year_offset": 0,
+    "base_prob": 0.0,
+    "condition": ["E-B1-Success"],
+    "delta_drift": { "SEMI": 12, "XAIX": 12, "RBTX": 9 },
+    "delta_vol": -0.18,
+    "next_events": [
+      ["E-P3-Abundance", 0.60],
+      ["E-P3-Oligopoly", 0.40]
+    ],
+    "narrative": "Recursive doubling < 6 months"
+  },
+  {
+    "id": "E-S2-Throttled",
+    "stage": "Self-Improving",
+    "year_offset": 0,
+    "base_prob": 0.0,
+    "condition": ["E-B1-Success"],
+    "delta_drift": { "SEMI": 4 },
+    "delta_vol": 0.00,
+    "next_events": [
+      ["E-P3-Managed", 1.0]
+    ],
+    "narrative": "Governance eval gates throttle ASI"
+  },
+  {
+    "id": "E-S2-Bottleneck",
+    "stage": "Self-Improving",
+    "year_offset": 0,
+    "base_prob": 0.0,
+    "condition": ["E-B1-Partial"],
+    "delta_drift": { "SEMI": -5, "WCOM": 3 },
+    "delta_vol": 0.12,
+    "next_events": [
+      ["E-P3-Managed", 0.50],
+      ["E-P3-Conflict", 0.50]
+    ],
+    "narrative": "Hardware + policy bottleneck"
+  },
+  {
+    "id": "E-S2-Stall",
+    "stage": "Self-Improving",
+    "year_offset": 0,
+    "base_prob": 0.0,
+    "condition": ["E-B1-Fail"],
+    "delta_drift": { "PACW": -3, "SEMI": -5 },
+    "delta_vol": 0.15,
+    "next_events": [
+      ["E-P3-Conflict", 1.0]
+    ],
+    "narrative": "Global moratorium prolongs stall"
+  },
+  {
+    "id": "E-P3-Abundance",
+    "stage": "Post-ASI",
+    "year_offset": 0,
+    "base_prob": 0.0,
+    "condition": ["E-S2-FastTakeoff"],
+    "delta_drift": { "PACW": 4, "IWVF": 2, "SEMI": 7 },
+    "delta_vol": -0.22,
+    "next_events": [],
+    "narrative": "Radical abundance economy"
+  },
+  {
+    "id": "E-P3-Oligopoly",
+    "stage": "Post-ASI",
+    "year_offset": 0,
+    "base_prob": 0.0,
+    "condition": ["E-S2-FastTakeoff"],
+    "delta_drift": { "PACW": 7, "SEMI": 14, "XAIX": 14 },
+    "delta_vol": 0.12,
+    "next_events": [],
+    "narrative": "Mega-cap tech captures surplus"
+  },
+  {
+    "id": "E-P3-Managed",
+    "stage": "Post-ASI",
+    "year_offset": 0,
+    "base_prob": 0.0,
+    "condition": ["E-S2-Throttled", "E-S2-Bottleneck"],
+    "delta_drift": { "PACW": 2, "SEMI": 4 },
+    "delta_vol": 0.00,
+    "next_events": [],
+    "narrative": "Managed boom–bust equilibrium"
+  },
+  {
+    "id": "E-P3-Conflict",
+    "stage": "Post-ASI",
+    "year_offset": 0,
+    "base_prob": 0.0,
+    "condition": ["E-S2-Stall", "E-S2-Bottleneck"],
+    "delta_drift": { "PACW": -3, "WDEP": 7, "ISPY": 8, "SGLN": 3 },
+    "delta_vol": 0.32,
+    "next_events": [],
+    "narrative": "Tech arms race and fragmentation"
+  }
+]

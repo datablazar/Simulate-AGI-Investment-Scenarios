@@ -1,0 +1,9 @@
+{
+  "buckets": [
+    { "name": "early",   "prob": 0.24, "agi_min": 3,  "agi_max": 7,  "asi_lag": 5  },
+    { "name": "middle",  "prob": 0.41, "agi_min": 8,  "agi_max": 15, "asi_lag": 7  },
+    { "name": "late",    "prob": 0.25, "agi_min": 16, "agi_max": 30, "asi_lag": 9  },
+    { "name": "never",   "prob": 0.10, "agi_min": 80, "agi_max": 100,"asi_lag": 0  }
+  ],
+  "ai_offset": 2
+}
