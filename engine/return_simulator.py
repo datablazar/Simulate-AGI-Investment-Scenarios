@@ -61,6 +61,7 @@ class ReturnSimulator:
         chol_year = [np.linalg.cholesky(cov_y[y] / 12.0) for y in range(years)]
 
         m_idx = 0  # month index in wealth_series
+        monthly_returns = []
         for y in range(years):
             mu_m = mu_y[y] / 12.0  # monthly mean vector
             chol = chol_year[y]
@@ -72,6 +73,7 @@ class ReturnSimulator:
             for m in range(12):
                 # Portfolio return this month
                 port_r = monthly_ret[m] @ weights
+                monthly_returns.append(port_r)
                 wealth = wealth * (1.0 + port_r) + self.contrib
                 m_idx += 1
                 wealth_series[m_idx] = wealth
@@ -81,8 +83,12 @@ class ReturnSimulator:
                     weights = self.w_target.copy()
                 # otherwise weights evolve passively (buy‑and‑hold)
 
-        # CAGR using monthly compounding
-        cagr = (wealth / 0.01) ** (1.0 / (months_total / 12)) - 1.0
+        # CAGR using time-weighted monthly returns
+        if monthly_returns:
+            prod_r = np.prod(1.0 + np.array(monthly_returns))
+            cagr = prod_r ** (12.0 / months_total) - 1.0
+        else:
+            cagr = 0.0
 
         # Max drawdown
         peak = np.maximum.accumulate(wealth_series[1:])
