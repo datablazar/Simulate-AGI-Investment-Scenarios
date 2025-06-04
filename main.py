@@ -4,7 +4,7 @@
 """
 Entry-point for the AI scenario Monte-Carlo engine.
 Usage:
-    python main.py --paths 20000 --contrib 100 --seed 0
+    python main.py --paths 20000 --contrib 100 [--seed SEED]
 """
 
 import argparse
@@ -25,8 +25,8 @@ def main() -> None:
                     help="number of Monte-Carlo worlds")
     ap.add_argument("--contrib", type=float, default=100.0,
                     help="monthly contribution (£)")
-    ap.add_argument("--seed",    type=int,   default=0,
-                    help="PRNG seed for reproducibility")
+    ap.add_argument("--seed",    type=int,   default=None,
+                    help="optional PRNG seed for reproducibility")
     args = ap.parse_args()
 
     # ----------------------------------------------------------------- tickers ---
@@ -64,7 +64,8 @@ def main() -> None:
     print("\nMonte-Carlo complete ✅")
     print(f"Worlds simulated  : {args.paths:,}")
     print(f"Monthly contrib £ : {args.contrib}")
-    print("Seed              :", args.seed)
+    seed_label = args.seed if args.seed is not None else "random"
+    print("Seed              :", seed_label)
     print("Summary JSON      :", json_path)
     print("Master CSV        :", csv_path)
     print("Fan chart PNG     :", f"results/fan_chart_{stamp}.png")

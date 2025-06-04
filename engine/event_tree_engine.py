@@ -24,11 +24,12 @@ class EventTreeEngine:
                  events_path: str | Path,
                  tickers: List[str],
                  horizon_years: int = 40,
-                 seed: int = 0):
+                 seed: int | None = None):
         # Load all events from JSON
         self.events = self._load_events(events_path)
         self.tickers = tickers
         self.horizon = horizon_years
+        # seed=None → nondeterministic RNG
         self.rng = np.random.default_rng(seed)
 
         # Map id → Event for quick lookup
@@ -142,16 +143,14 @@ if __name__ == "__main__":
                "ISPY","NUCG","SGLN"]
 
     ts = TimelineSampler(
-        Path(__file__).parents[1] / "data" / "timeline_buckets.json",
-        seed=42
+        Path(__file__).parents[1] / "data" / "timeline_buckets.json"
     )
     tl = ts.sample_timeline()
     print("Sampled timeline:", tl)
 
     et = EventTreeEngine(
         Path(__file__).parents[1] / "data" / "events_catalogue.json",
-        tickers=tickers,
-        seed=42
+        tickers=tickers
     )
     out = et.simulate(tl)
     print("Fired events:", [e.id for e in out["fired"]])
