@@ -24,6 +24,7 @@ from .timeline_sampler     import TimelineSampler
 from .event_tree_engine    import EventTreeEngine
 from .drift_vol_aggregator import DriftVolAggregator
 from .return_simulator     import ReturnSimulator
+from .macro               import MACRO_STATES, MACRO_PROBS, MACRO_MAP
 
 class BatchRunner:
     def __init__(self,
@@ -83,7 +84,6 @@ class BatchRunner:
                 fired_counts[ev.id] = fired_counts.get(ev.id, 0) + 1
 
             # 3) Draw one macro-state for this path
-            from main import MACRO_STATES, MACRO_PROBS, MACRO_MAP
             macro_choice = self.master_rng.choice(MACRO_STATES, p=MACRO_PROBS)
             mu_shift, sigma_mult = MACRO_MAP[macro_choice]
 
