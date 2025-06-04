@@ -1,5 +1,4 @@
 [
-  /* Stage S0 – Pre-AGI events */
   {
     "id": "E-B0-Breakthrough",
     "stage": "Pre-AGI",
@@ -93,7 +92,6 @@
     "narrative": "UN proposes treaty to ban fully autonomous weapons by 2026:contentReference[oaicite:29]{index=29}. Modestly boosts defense-related technology stocks, raises volatility."
   },
 
-  /* Stage S1 – AGI Rollout, conditional on Breakthrough */
   {
     "id": "E-B1-Success",
     "stage": "AGI-Rollout",
@@ -135,7 +133,6 @@
     "narrative": "AGI alignment fails catastrophically → emergency halt of development."
   },
 
-  /* Stage S2 – Self-Improving Growth */
   {
     "id": "E-S2-FastTakeoff",
     "stage": "Self-Improving",
@@ -191,7 +188,6 @@
     "narrative": "Global development moratorium extends stall."
   },
 
-  /* Stage S3 – Post-ASI Outcomes */
   {
     "id": "E-P3-Abundance",
     "stage": "Post-ASI",
