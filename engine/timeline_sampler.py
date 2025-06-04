@@ -31,7 +31,7 @@ class Bucket:
 # ---------- Sampler class -----------------------------------------------------
 
 class TimelineSampler:
-    def __init__(self, cfg_path: str | Path, seed: int = 0):
+    def __init__(self, cfg_path: str | Path, seed: int | None = None):
         cfg_path = Path(cfg_path)
         with open(cfg_path, "r") as f:
             cfg = json.load(f)
@@ -44,6 +44,7 @@ class TimelineSampler:
             raise ValueError("Bucket probabilities must sum to 1.")
 
         self._bucket_probs = np.array(probs, dtype=float)
+        # seed=None → nondeterministic RNG
         self.rng = np.random.default_rng(seed)
 
     # -------------------------------------------------------------------------
@@ -87,8 +88,7 @@ class TimelineSampler:
 # Stand-alone test
 # -----------------------------------------------------------------------------#
 if __name__ == "__main__":
-    ts = TimelineSampler(Path(__file__).parents[1] / "data" / "timeline_buckets.json",
-                         seed=42)
+    ts = TimelineSampler(Path(__file__).parents[1] / "data" / "timeline_buckets.json")
     for _ in range(3):
         tl = ts.sample_timeline()
         print("Sampled:", tl)
