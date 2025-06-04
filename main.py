@@ -7,11 +7,29 @@ Usage:
     python main.py --paths 20000 --contrib 100 --seed 0
 """
 
-import argparse, json, time, numpy as np
+import argparse
+import json
+import time
+import numpy as np
 from pathlib import Path
 
 from engine.batch_runner     import BatchRunner
 from engine.reporting        import save_summary_csv, fan_chart, cagr_histogram
+
+# ─── Load macro-state definitions ─────────────────────────────────────
+_base       = Path(__file__).parent / "data"
+_macro_path = _base / "macro_states.json"
+with open(_macro_path, "r") as f:
+    _raw_macros = json.load(f)
+
+MACRO_STATES = [entry["state"] for entry in _raw_macros]
+MACRO_PROBS  = [entry["prob"]  for entry in _raw_macros]
+# Map state → (mu_shift, sigma_mult); convert mu_shift from % to decimal
+MACRO_MAP = {
+    entry["state"]: (entry["mu_shift"] / 100.0, entry["sigma_mult"])
+    for entry in _raw_macros
+}
+
 
 # --------------------------------------------------------------------- CLI ---
 ap = argparse.ArgumentParser()
@@ -32,6 +50,14 @@ runner = BatchRunner(n_paths=args.paths,
                      tickers=tickers,
                      monthly_contrib=args.contrib,
                      seed=args.seed)
+
+# Inside BatchRunner.run(), each path does:
+#   1) Sample AI timeline
+#   2) Simulate event tree → ev_out["drift"], ev_out["volmul"]
+#   3) Draw one macro-state and get (mu_shift, sigma_mult)
+#   4) Call agg.combine(ev_out["drift"], ev_out["volmul"]) to get mu_arr, cov_arr
+#   5) Apply mu_shift and sigma_mult to mu_arr, cov_arr
+#   6) Pass adjusted arrays to rs.simulate_path()
 
 summary = runner.run(store_paths=True)
 json_path = runner.save(summary)
