@@ -1,76 +1,96 @@
-# AI_Scenario_Sim/engine/return_simulator.py
-# ------------------------------------------
 """
-ReturnSimulator
-===============
+AI_Scenario_Sim/engine/return_simulator.py
+-----------------------------------------
+Monthly Monte‑Carlo portfolio engine with quarterly re‑balancing.
 
-• Accepts one path's yearly drift (mu) and covariance (cov) matrices
-  plus an ETF-weight vector and monthly contribution amount.
-• Generates annual portfolio returns via multivariate normal draws.
-• Compounds wealth with equal end-of-month deposits.
-• Outputs wealth series, annual-return series, CAGR, and max draw-down.
+Public API
+----------
+rs = ReturnSimulator(target_weights, monthly_contrib=100, rebalance="quarter")
+res = rs.simulate_path(mu_year, cov_year)  # mu_year : (years × n_assets)
+                                             cov_year: (years × n × n)
+res keys:  'wealth_series' (np.ndarray months+1)
+           'terminal_wealth' (float)
+           'cagr' (float)
+           'max_drawdown' (float)
 
-Assumes arithmetic annual returns; geometric comp handled implicitly.
+Notes
+-----
+* Each annual (μ, Σ) is scaled to 12 monthly steps:
+    μ_m  = μ / 12
+    Σ_m  = Σ / 12          (≈ 1/12 variance → √(1/12) σ)
+* Quarterly re‑balance: every 3rd month, holdings reset to `self.w_target`.
+* Master RNG (`self.rng`) is supplied externally (BatchRunner overrides).
 """
-
 from __future__ import annotations
-from typing import Dict
 import numpy as np
+from typing import Dict
+
 
 class ReturnSimulator:
     def __init__(self,
-                 weights: np.ndarray,        # n-asset weights, sum to 1
+                 target_weights: np.ndarray,
                  monthly_contrib: float = 100.0,
-                 seed: int = 0):
-        self.w = weights
-        self.contrib = monthly_contrib
-        self.rng = np.random.default_rng(seed)
+                 rebalance: str = "quarter"):
+        """`target_weights` must sum to 1 in the order of tickers used upstream."""
+        self.w_target = target_weights.astype(float)
+        if abs(self.w_target.sum() - 1) > 1e-6:
+            raise ValueError("target_weights must sum to 1.0")
 
-    # ------------------------------------------------------------------
-    def simulate_path(self,
-                      mu: np.ndarray,        # (years, n_assets)
-                      cov: np.ndarray        # (years, n_assets, n_assets)
-                     ) -> Dict:
-        years, n = mu.shape
-        assert cov.shape == (years, n, n)
+        self.contrib   = float(monthly_contrib)
+        self.rebal_flag = rebalance  # "none" | "quarter"
 
-        ann_ret = np.empty(years)
+        # RNG placeholder – BatchRunner will inject its master_rng
+        self.rng = None  # type: ignore
 
-        # --- draw correlated returns year by year --------------------
+    # ---------------------------------------------------------------------
+    def simulate_path(self, mu_y: np.ndarray, cov_y: np.ndarray) -> Dict:
+        """Simulate wealth path given annual mu & covariance.
+        Parameters
+        ----------
+        mu_y  : (years × n_assets) annual arithmetic mean returns (decimal)
+        cov_y : (years × n × n)    annual covariance matrices (decimal^2)
+        """
+        years, n = mu_y.shape
+        months_total = years * 12
+
+        wealth_series = np.zeros(months_total + 1)
+        wealth = 0.01  # placeholder tiny initial capital to avoid 0/0 in CAGR
+        weights = self.w_target.copy()
+
+        # Pre‑compute Cholesky factors for speed
+        chol_year = [np.linalg.cholesky(cov_y[y] / 12.0) for y in range(years)]
+
+        m_idx = 0  # month index in wealth_series
         for y in range(years):
-            chol = np.linalg.cholesky(cov[y])
-            z = self.rng.standard_normal(n)
-            asset_r = mu[y] + chol @ z           # arithmetic annual returns
-            ann_ret[y] = asset_r @ self.w
+            mu_m = mu_y[y] / 12.0  # monthly mean vector
+            chol = chol_year[y]
 
-        # --- wealth compounding with monthly deposits ----------------
-        wealth_t = np.zeros(years + 1)
-        wealth = 0.0
+            # Draw 12 correlated monthly excess returns
+            z = self.rng.standard_normal((12, n))  # (12 × n)
+            monthly_ret = (mu_m + (z @ chol.T))  # (12 × n)
 
-        for y in range(years):
-            r_annual = max(ann_ret[y], -0.999)          # hard floor at –99.9 %
-            if r_annual <= -1.0 + 1e-9:                 # shouldn’t happen after clamp
-                r_month = -1.0
-            else:
-                r_month = (1 + r_annual) ** (1/12) - 1
+            for m in range(12):
+                # Portfolio return this month
+                port_r = monthly_ret[m] @ weights
+                wealth = wealth * (1.0 + port_r) + self.contrib
+                m_idx += 1
+                wealth_series[m_idx] = wealth
 
-            # future value of 12 equal deposits
-            cf = (self.contrib * 12 if r_month == 0
-                  else self.contrib * ((1 + r_month)**12 - 1) / r_month)
-            wealth = wealth * (1 + r_annual) + cf
-            wealth_t[y + 1] = wealth
+                # Re‑balance at quarter ends if requested
+                if self.rebal_flag == "quarter" and (m % 3 == 2):
+                    weights = self.w_target.copy()
+                # otherwise weights evolve passively (buy‑and‑hold)
 
-        # --- metrics -------------------------------------------------
-        cagr = (wealth / (self.contrib * 12 * years)) ** (1/years) - 1
-        peak = np.maximum.accumulate(wealth_t[1:])      # skip t = 0 (wealth=0)
-        drawdown = (wealth_t[1:] - peak) / peak
+        # CAGR using monthly compounding
+        cagr = (wealth / 0.01) ** (1.0 / (months_total / 12)) - 1.0
+
+        # Max drawdown
+        peak = np.maximum.accumulate(wealth_series[1:])
+        drawdown = (wealth_series[1:] - peak) / peak
         max_dd = drawdown.min() if len(drawdown) else 0.0
 
-
-
         return {
-            "wealth_series": wealth_t,
-            "ann_returns": ann_ret,
+            "wealth_series": wealth_series,
             "terminal_wealth": wealth,
             "cagr": cagr,
             "max_drawdown": max_dd

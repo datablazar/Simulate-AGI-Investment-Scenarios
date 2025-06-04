@@ -1,9 +1,33 @@
 {
   "buckets": [
-    { "name": "early",   "prob": 0.24, "agi_min": 3,  "agi_max": 7,  "asi_lag": 5  },
-    { "name": "middle",  "prob": 0.41, "agi_min": 8,  "agi_max": 15, "asi_lag": 7  },
-    { "name": "late",    "prob": 0.25, "agi_min": 16, "agi_max": 30, "asi_lag": 9  },
-    { "name": "never",   "prob": 0.10, "agi_min": 80, "agi_max": 100,"asi_lag": 0  }
+    {
+      "name": "aggressive",
+      "prob": 0.20,
+      "agi_min": 5,
+      "agi_max": 10,
+      "asi_lag": 2
+    },
+    {
+      "name": "moderate",
+      "prob": 0.40,
+      "agi_min": 11,
+      "agi_max": 20,
+      "asi_lag": 3
+    },
+    {
+      "name": "slow",
+      "prob": 0.30,
+      "agi_min": 21,
+      "agi_max": 40,
+      "asi_lag": 5
+    },
+    {
+      "name": "very_slow",
+      "prob": 0.10,
+      "agi_min": 41,
+      "agi_max": 80,
+      "asi_lag": 10
+    }
   ],
   "ai_offset": 2
 }
