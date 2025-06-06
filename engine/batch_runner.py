@@ -6,9 +6,9 @@ BatchRunner
 
 Monte-Carlo driver:
   • draws a capability timeline
-  • triggers the event tree
+  • triggers the event tree yearly
   • aggregates drift/vol (with stochastic noise)
-  • simulates wealth path
+  • simulates wealth path yearly
   • stores summary metrics
 
 Saves a JSON file like:
@@ -18,23 +18,26 @@ Saves a JSON file like:
 from __future__ import annotations
 from pathlib import Path
 import json, time, numpy as np
-from typing import Dict, List
+from typing import Dict, List, Any
 
+# Import the new get_current_macro_state function
 from .timeline_sampler     import TimelineSampler
 from .event_tree_engine    import EventTreeEngine
 from .drift_vol_aggregator import DriftVolAggregator
 from .return_simulator     import ReturnSimulator
-from .macro               import MACRO_STATES, MACRO_PROBS, MACRO_MAP
+from .macro                import get_current_macro_state, MACRO_MAP # Import the new function and MACRO_MAP
 
 class BatchRunner:
     def __init__(self,
                  n_paths: int,
                  tickers: List[str],
                  monthly_contrib: float = 100.0,
-                 seed: int | None = None):
-
+                 seed: int | None = None,
+                 horizon_years: int = 40): # Added horizon_years to init
+        
         self.n_paths = n_paths
         self.tickers = tickers
+        self.horizon_years = horizon_years # Store horizon_years
 
         # --- Use InvestEngine allocations ---
         TARGET_ALLOC = {
@@ -49,66 +52,109 @@ class BatchRunner:
         # Create a single master RNG (seed=None → random)
         self.master_rng = np.random.default_rng(seed)
 
-        # Initialize modules without giving them their own seeds…
+        # Initialize modules
         self.ts = TimelineSampler("data/timeline_buckets.json")
         self.et = EventTreeEngine("data/events_catalogue.json",
                                   tickers=tickers,
-                                  horizon_years=40)
+                                  horizon_years=self.horizon_years) # Pass horizon_years
         self.agg = DriftVolAggregator("data/asset_baseline.json", tickers)
-        self.rs  = ReturnSimulator(self.weights, monthly_contrib)
+        # ReturnSimulator needs to simulate path year-by-year now
+        self.rs  = ReturnSimulator(self.weights, monthly_contrib) 
 
         # Override each module's .rng to use the shared master RNG
         self.ts.rng  = self.master_rng
         self.et.rng  = self.master_rng
-        self.agg.rng = self.master_rng    # ← Ensure aggregator.rng is set
+        self.agg.rng = self.master_rng
         self.rs.rng  = self.master_rng
 
 
     # -----------------------------------------------------------------
     def run(self, store_paths: bool = False) -> Dict:
-        wealths, cagrs, maxdds = [], [], []
-        if store_paths:
-            wealth_matrix = []
+        all_wealth_series_for_paths = [] # Store full wealth series for each path
+        cagrs, maxdds = [], []
+        
         bucket_counts = {b["name"]:0 for b in
                          json.load(open("data/timeline_buckets.json"))["buckets"]}
         fired_counts  = {}
 
         for i in range(self.n_paths):
-            # 1) Sample AI capability timeline
-            tl = self.ts.sample_timeline()
-            bucket_counts[tl["bucket"]] += 1
+            # Per-path initializations
+            timeline = self.ts.sample_timeline()
+            bucket_counts[timeline["bucket"]] += 1
+            
+            # Initialize for a new path simulation
+            # These will aggregate across years within this path
+            path_mu_arr  = np.zeros((self.horizon_years, len(self.tickers)))
+            path_cov_arr = np.zeros((self.horizon_years, len(self.tickers), len(self.tickers)))
+            
+            # Track E-P3 event and AGI breakthrough year for dynamic macro
+            current_triggered_ep3_event_id: str | None = None
+            agi_breakthrough_year = timeline.get("agi_year")
 
-            # 2) Simulate event tree based on that timeline
-            ev_out = self.et.simulate(tl)
-            for ev in ev_out["fired"]:
-                fired_counts[ev.id] = fired_counts.get(ev.id, 0) + 1
+            # Initialize wealth for this path
+            current_wealth_series_path = np.zeros(self.horizon_years * 12 + 1)
+            current_wealth = 0.01 # placeholder tiny initial capital
+            current_wealth_series_path[0] = current_wealth
 
-            # 3) Draw one macro-state for this path
-            macro_choice = self.master_rng.choice(MACRO_STATES, p=MACRO_PROBS)
-            mu_shift, sigma_mult = MACRO_MAP[macro_choice]
+            # --- Simulate year by year for this path ---
+            for year in range(self.horizon_years):
+                # 2) Simulate event tree for the current year
+                #    event_engine.simulate_events now returns triggered_ep3_event_id
+                event_results = self.et.simulate_events(
+                    timeline=timeline,
+                    event_stats_map=self.et._get_event_stats_map(), # Pass the actual map
+                    current_year=year
+                )
+                
+                # Update fired_counts based on events that fired *this year*
+                for ev in event_results["fired"]:
+                    fired_counts[ev.id] = fired_counts.get(ev.id, 0) + 1
 
-            # 4) Combine baseline + event-induced drifts/vols
-            combo = self.agg.combine(ev_out["drift"], ev_out["volmul"])
-            mu_arr  = combo["mu"]   # shape: (years, n_assets)
-            cov_arr = combo["cov"]  # shape: (years, n_assets, n_assets)
+                # Update the persistent E-P3 event ID for this path
+                # If a new E-P3 event fired, it overrides previous ones
+                if event_results["triggered_ep3_event_id"] is not None:
+                    current_triggered_ep3_event_id = event_results["triggered_ep3_event_id"]
 
-            # 5a) Apply macro-state mu_shift to every year & asset
-            mu_arr = mu_arr + mu_shift
+                # 3) Determine macro-state for this year using the dynamic logic
+                macro_state_this_year = get_current_macro_state(
+                    current_year=year,
+                    agi_breakthrough_year=agi_breakthrough_year,
+                    triggered_ep3_event_id=current_triggered_ep3_event_id
+                )
+                mu_shift, sigma_mult = MACRO_MAP[macro_state_this_year]
 
-            # 5b) Scale covariance by sigma_mult^2
-            cov_arr = cov_arr * (sigma_mult ** 2)
+                # 4) Combine baseline + event-induced drifts/vols for this year
+                combo = self.agg.combine_for_year( # Assuming combine_for_year now takes year-specific inputs
+                    event_results["drift"], # event_results["drift"] is already for current year
+                    event_results["volmul"] # event_results["volmul"] is already for current year
+                )
+                mu_year_combined  = combo["mu"]   # shape: (n_assets)
+                cov_year_combined = combo["cov"]  # shape: (n_assets, n_assets)
 
-            # 6) Simulate returns & contributions
-            res = self.rs.simulate_path(mu_arr, cov_arr)
+                # 5a) Apply macro-state mu_shift for this year
+                mu_year_combined = mu_year_combined + mu_shift
+
+                # 5b) Scale covariance by sigma_mult^2 for this year
+                cov_year_combined = cov_year_combined * (sigma_mult ** 2)
+
+                # Store adjusted mu and cov for this specific year
+                path_mu_arr[year] = mu_year_combined
+                path_cov_arr[year] = cov_year_combined
+            
+            # --- After annual loops, simulate the full path with aggregated annual data ---
+            # Now, simulate the entire wealth path using the year-by-year determined mu_arr and cov_arr
+            res = self.rs.simulate_path(path_mu_arr, path_cov_arr)
+            
             if store_paths:
-                wealth_matrix.append(res["wealth_series"])
+                all_wealth_series_for_paths.append(res["wealth_series"])
 
             wealths.append(res["terminal_wealth"])
             cagrs.append(res["cagr"])
             maxdds.append(res["max_drawdown"])
 
         if store_paths:
-            wealth_matrix = np.vstack(wealth_matrix)
+            # wealth_matrix is now built from pre-collected full series
+            wealth_matrix = np.vstack(all_wealth_series_for_paths)
 
         wealths = np.array(wealths)
         cagrs   = np.array(cagrs)
