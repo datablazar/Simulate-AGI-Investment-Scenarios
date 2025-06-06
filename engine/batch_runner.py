@@ -25,7 +25,8 @@ from .timeline_sampler     import TimelineSampler
 from .event_tree_engine    import EventTreeEngine
 from .drift_vol_aggregator import DriftVolAggregator
 from .return_simulator     import ReturnSimulator
-from .macro                import get_current_macro_state, MACRO_MAP # Import the new function and MACRO_MAP
+# Import get_current_macro_state and MACRO_MAP (which now holds asset-specific shifts)
+from .macro                import get_current_macro_state, MACRO_MAP
 
 class BatchRunner:
     def __init__(self,
@@ -58,7 +59,6 @@ class BatchRunner:
                                   tickers=tickers,
                                   horizon_years=self.horizon_years) # Pass horizon_years
         self.agg = DriftVolAggregator("data/asset_baseline.json", tickers)
-        # ReturnSimulator needs to simulate path year-by-year now
         self.rs  = ReturnSimulator(self.weights, monthly_contrib) 
 
         # Override each module's .rng to use the shared master RNG
@@ -82,8 +82,7 @@ class BatchRunner:
             timeline = self.ts.sample_timeline()
             bucket_counts[timeline["bucket"]] += 1
             
-            # Initialize for a new path simulation
-            # These will aggregate across years within this path
+            # These arrays will store the combined mu and cov for each year of this path
             path_mu_arr  = np.zeros((self.horizon_years, len(self.tickers)))
             path_cov_arr = np.zeros((self.horizon_years, len(self.tickers), len(self.tickers)))
             
@@ -91,15 +90,11 @@ class BatchRunner:
             current_triggered_ep3_event_id: str | None = None
             agi_breakthrough_year = timeline.get("agi_year")
 
-            # Initialize wealth for this path
-            current_wealth_series_path = np.zeros(self.horizon_years * 12 + 1)
-            current_wealth = 0.01 # placeholder tiny initial capital
-            current_wealth_series_path[0] = current_wealth
-
             # --- Simulate year by year for this path ---
             for year in range(self.horizon_years):
                 # 2) Simulate event tree for the current year
                 #    event_engine.simulate_events now returns triggered_ep3_event_id
+                #    It also requires event_stats_map, which it can get internally from its own _get_event_stats_map method
                 event_results = self.et.simulate_events(
                     timeline=timeline,
                     event_stats_map=self.et._get_event_stats_map(), # Pass the actual map
@@ -121,22 +116,51 @@ class BatchRunner:
                     agi_breakthrough_year=agi_breakthrough_year,
                     triggered_ep3_event_id=current_triggered_ep3_event_id
                 )
-                mu_shift, sigma_mult = MACRO_MAP[macro_state_this_year]
+                
+                # Retrieve asset-specific mu_shift and sigma_mult from MACRO_MAP
+                # MACRO_MAP now returns dictionaries
+                mu_shifts_dict, sigma_mults_dict = MACRO_MAP[macro_state_this_year]
 
+                # Convert dictionary shifts/multipliers to numpy arrays aligned with tickers
+                # Initialize with DEFAULT values
+                macro_mu_shift_arr = np.full(len(self.tickers), mu_shifts_dict.get("DEFAULT", 0.00))
+                macro_sigma_mult_arr = np.full(len(self.tickers), sigma_mults_dict.get("DEFAULT", 1.00))
+
+                # Apply asset-specific overrides
+                for idx, ticker in enumerate(self.tickers):
+                    if ticker in mu_shifts_dict:
+                        macro_mu_shift_arr[idx] = mu_shifts_dict[ticker]
+                    if ticker in sigma_mults_dict:
+                        macro_sigma_mult_arr[idx] = sigma_mults_dict[ticker]
+                
                 # 4) Combine baseline + event-induced drifts/vols for this year
-                combo = self.agg.combine_for_year( # Assuming combine_for_year now takes year-specific inputs
-                    event_results["drift"], # event_results["drift"] is already for current year
-                    event_results["volmul"] # event_results["volmul"] is already for current year
+                #    drift_vol_aggregator.py's combine method needs to be called to get base + event effects
+                combo = self.agg.combine(
+                    event_results["drift"], # event_results["drift"] is for current year
+                    event_results["volmul"] # event_results["volmul"] is for current year
                 )
                 mu_year_combined  = combo["mu"]   # shape: (n_assets)
                 cov_year_combined = combo["cov"]  # shape: (n_assets, n_assets)
 
-                # 5a) Apply macro-state mu_shift for this year
-                mu_year_combined = mu_year_combined + mu_shift
+                # 5a) Apply macro-state mu_shift PER ASSET for this year
+                # mu_year_combined is (n_assets)
+                # macro_mu_shift_arr is (n_assets)
+                mu_year_combined = mu_year_combined + macro_mu_shift_arr
 
-                # 5b) Scale covariance by sigma_mult^2 for this year
-                cov_year_combined = cov_year_combined * (sigma_mult ** 2)
-
+                # 5b) Scale covariance by sigma_mult^2 PER ASSET for this year
+                # This requires careful application as sigma_mult_arr is per-asset,
+                # but cov_arr is n_assets x n_assets.
+                # A simple way for a diagonal adjustment is element-wise multiplication
+                # by sigma_mult^2, assuming sigma_mult_arr applies to standard deviations.
+                # If sigma_mult_arr applies to variance directly, it's (macro_sigma_mult_arr**2).
+                # For a full covariance matrix, we multiply each element (i,j) by
+                # sigma_mult[i] * sigma_mult[j].
+                # This is (Sigma_new = S_diag_matrix @ Sigma_old @ S_diag_matrix)
+                # where S_diag_matrix is diag(macro_sigma_mult_arr)
+                
+                sigma_mult_matrix = np.diag(macro_sigma_mult_arr)
+                cov_year_combined = sigma_mult_matrix @ cov_year_combined @ sigma_mult_matrix.T
+                
                 # Store adjusted mu and cov for this specific year
                 path_mu_arr[year] = mu_year_combined
                 path_cov_arr[year] = cov_year_combined
