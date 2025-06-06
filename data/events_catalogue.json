@@ -224,7 +224,6 @@
   {
     "id": "E-S2-Stall",
     "stage": "Self-Improving",
-    "year_offset": 0,
     "base_prob": 0.0,
     "condition": ["E-B1-Fail"],
     "delta_drift": { "PACW": -3, "SEMI": -5 },
