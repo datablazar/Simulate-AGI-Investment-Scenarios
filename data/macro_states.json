@@ -2,31 +2,92 @@
   {
     "state": "NoBreakthrough",
     "prob": 0.700,
-    "mu_shift": 0.00,
-    "sigma_mult": 1.00
+    "mu_shift": {
+      "DEFAULT": 0.00,
+      "PACW": 0.00,
+      "SEMI": 0.00,
+      "XAIX": 0.00,
+      "RBTX": 0.00,
+      "ITPS": 0.00,
+      "ISPY": 0.00,
+      "NUCG": 0.00,
+      "WDEP": 0.00
+    },
+    "sigma_mult": {
+      "DEFAULT": 1.00,
+      "PACW": 1.00,
+      "SEMI": 1.00,
+      "XAIX": 1.00,
+      "RBTX": 1.00,
+      "ITPS": 1.00,
+      "ISPY": 1.00,
+      "NUCG": 1.00,
+      "WDEP": 1.00
+    }
   },
   {
     "state": "Conflict",
     "prob": 0.150,
-    "mu_shift": -0.40,
-    "sigma_mult": 1.32
+    "mu_shift": {
+      "DEFAULT": -0.04,   // -4% general market downturn due to global instability
+      "WDEP": 0.07,       // +7% for Defense due to "AI arms race" and increased spending
+      "ISPY": 0.08,       // +8% for Cybersecurity due to escalating cyber warfare
+      "SGLN": 0.03,       // +3% for Gold as a safe haven asset
+      "XAIX": -0.12,      // -12% for AI Innovators due to fragmentation, export controls, and reduced collaboration
+      "SEMI": -0.08,      // -8% for Semiconductors due to supply chain disruptions and trade wars
+      "XCX5": -0.10,      // -10% for China Tech due to geopolitical tensions and restrictions
+      "PACW": -0.06       // -6% for broader tech/US growth due to uncertainty
+    },
+    "sigma_mult": {
+      "DEFAULT": 1.32,    // 32% increase in general market volatility
+      "VAGS": 1.10,       // 10% increase for bonds, less volatile than equities but still affected by uncertainty
+      "SGLN": 0.90        // Gold might be relatively more stable compared to surging market volatility
+    }
   },
   {
     "state": "Managed",
     "prob": 0.1125,
-    "mu_shift": 0.10,
-    "sigma_mult": 1.00
+    "mu_shift": {
+      "DEFAULT": 0.01,    // +1% moderate general market growth in a regulated equilibrium
+      "XAIX": 0.02,       // +2% for AI Innovators, growth tempered by stable controls
+      "WCOM": 0.01,       // +1% for Utilities/Infrastructure due to stable demand
+      "ITPS": 0.03,       // +3% for IT Services as companies invest in compliance and integration
+      "VAGS": 0.01        // +1% for bonds/stable assets due to reduced systemic risk
+    },
+    "sigma_mult": {
+      "DEFAULT": 1.00,    // Stable volatility in a regulated environment
+      "XAIX": 0.90        // Slightly lower volatility for AI tech due to clearer regulations
+    }
   },
   {
     "state": "Oligopoly",
     "prob": 0.015,
-    "mu_shift": 0.55,
-    "sigma_mult": 1.12
+    "mu_shift": {
+      "DEFAULT": 0.055,   // +5.5% strong general market growth driven by AI
+      "XAIX": 0.12,       // +12% for AI Innovators due to massive concentration of wealth in few firms
+      "SEMI": 0.08,       // +8% for Semiconductors, crucial for dominating AI firms
+      "PRIJ": 0.10,       // +10% for Private Equity, benefiting from investment in and consolidation around leading firms
+      "EQQQ": 0.07        // +7% for Nasdaq 100/Tech, reflecting strong performance of tech giants
+    },
+    "sigma_mult": {
+      "DEFAULT": 1.12,    // 12% increase in general volatility due to high concentration risk
+      "XAIX": 1.20,       // Higher volatility for top AI firms due to "winner-take-all" dynamics
+      "SEMI": 1.15        // Higher volatility for semiconductors due to demand concentration
+    }
   },
   {
     "state": "Abundance",
     "prob": 0.0225,
-    "mu_shift": 0.30,
-    "sigma_mult": 0.78
+    "mu_shift": {
+      "DEFAULT": 0.03,    // +3% for general prosperity in a utopian, AI-driven economy
+      "WLDS": 0.05,       // +5% for global diversified funds due to widespread economic benefit
+      "IWFV": 0.04,       // +4% for value stocks, as productivity gains lead to efficiency across industries
+      "EMIM": 0.03,       // +3% for emerging markets, benefiting from distributed wealth and technology
+      "XAIX": 0.00        // 0% shift for core AI innovators, as their tech becomes ubiquitous and less a source of outsized returns
+    },
+    "sigma_mult": {
+      "DEFAULT": 0.78,    // 22% reduction in overall market volatility due to economic stability and resource abundance
+      "VAGS": 0.85        // Even lower volatility for safe assets
+    }
   }
 ]
